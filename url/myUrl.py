@@ -1,6 +1,7 @@
 # implementing my own telnet
 
 import socket
+import ssl
 
 class URL:
     '''
@@ -8,10 +9,14 @@ class URL:
     constructor - parses the URL string into scheme, host and path
     '''
     def __init__(self,url):
+        '''
+        @param: url - URL of the website we are trying to go to
+        parses the URL into scheme/protocol,port, host and path. stores them as object properties
+        '''
         self.scheme,url = url.split("://",1)
         
-        #checking the fact that our browser only supports http
-        assert self.scheme == "http"
+        #checking the fact that our browser only supports http / https
+        assert self.scheme in ["http","https"]
 
         # add the / if not in the url, path is empty
         if "/" not in url:
@@ -19,6 +24,19 @@ class URL:
 
         # getting the host and the path
         self.host, url = url.split("/",1)
+
+        #get the port if defined in the URL, else assign default ports
+        if ":" in self.host:
+            self.host, self.port = self.host.split(":",1)
+            self.port = int(self.port)
+        else:
+            if self.scheme == "http":
+                # 80 is the http default port
+                self.port = 80
+            elif self.scheme == "https":
+                # 443 is the https default port
+                self.port = 443
+    
         self.path = "/" + url
 
 
@@ -29,11 +47,16 @@ class URL:
         # create a socket to connect to the host 
         # socket connection details = family=address family, defines location(where), type=stream/datagran(what), proto=(how)
         s = socket.socket(family=socket.AF_INET,type=socket.SOCK_STREAM,proto=socket.IPPROTO_TCP)
+        
         #TODO: create different instances of the socket connection string for different types and protocol
 
-        # connect to the host using the hostname and the port(only supports port 80 for http)
-        port = 80
-        s.connect((self.host,port)) # connect accepts a single argument with all the params defined
+        # connect to the host using the hostname and the port
+        s.connect((self.host,self.port)) # connect accepts a single argument with all the params defined
+
+        # wrap it in a ssl context to establish a secure connection for the https protocol
+        if self.scheme == "https":
+            _ctx = ssl.create_default_context()
+            s = _ctx.wrap_socket(s,server_hostname=self.host)
 
         # REQUEST being created for sending
         #GET path HTTP/1.0
@@ -70,6 +93,7 @@ class URL:
                 _in_tag = False
             elif not _in_tag:
                 print(c,end="")
+                     
 
 
     def parseResponse(self, response):
