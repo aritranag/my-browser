@@ -1,0 +1,106 @@
+# implementing my own telnet
+
+import socket
+
+class URL:
+    '''
+    URL class to work with a URL
+    constructor - parses the URL string into scheme, host and path
+    '''
+    def __init__(self,url):
+        self.scheme,url = url.split("://",1)
+        
+        #checking the fact that our browser only supports http
+        assert self.scheme == "http"
+
+        # add the / if not in the url, path is empty
+        if "/" not in url:
+            url = url + "/"
+
+        # getting the host and the path
+        self.host, url = url.split("/",1)
+        self.path = "/" + url
+
+
+    def request(self):
+        '''
+        Download the web page defined by the host and path values in the class object
+        '''
+        # create a socket to connect to the host 
+        # socket connection details = family=address family, defines location(where), type=stream/datagran(what), proto=(how)
+        s = socket.socket(family=socket.AF_INET,type=socket.SOCK_STREAM,proto=socket.IPPROTO_TCP)
+        #TODO: create different instances of the socket connection string for different types and protocol
+
+        # connect to the host using the hostname and the port(only supports port 80 for http)
+        port = 80
+        s.connect((self.host,port)) # connect accepts a single argument with all the params defined
+
+        # REQUEST being created for sending
+        #GET path HTTP/1.0
+        #Host: hostname
+        #empty line to indicate end of the input
+        request = "GET {} HTTP/1.0\r\n".format(self.path)
+        request += "Host: {}\r\n".format(self.host)
+        request += "\r\n"
+        s.send(request.encode('utf8')) #encode the request in utf8 format to create a byte stream to send
+        #TODO : understand the nuances of the encoder to use for real world use case
+
+        #RESPONSE from the server
+        # originally we have to use a loop to read all the bytes coming to the socket from the server
+        # makefile utility in python is a shortcut to read all the bytes, decode it in the proper format and even accommodate HTTP line endings
+        response = s.makefile('r',encoding="utf8",newline="\r\n")
+        responseObj = self.parseResponse(response)
+        s.close()
+
+        return responseObj
+    
+
+    def show(self,body):
+        '''
+        A simple HTML parser, shows all the text in the HTML, but none of the tags
+        '''
+        _in_tag = False
+        # goes through each character in the body
+        # determines whether the character is part of a tag
+        # if not, the character is printed
+        for c in body:
+            if c == '<':
+                _in_tag = True
+            elif c == '>':
+                _in_tag = False
+            elif not _in_tag:
+                print(c,end="")
+
+
+    def parseResponse(self, response):
+        '''
+        Utility function for parsing the response (response must be a an object of makefile)
+        Creates a dictionary with all the parts of the response and returns it
+        '''
+        _r = {}
+
+        #1st line of the response is the status line containing version,status,explanation
+        statusLine = response.readline()
+        _r["version"],_r["status"],_r["explanation"] = statusLine.strip().split(" ",2)
+
+        # Headers section
+        # loop through the next lines until there is an empty line
+        _r["response_headers"] = {}
+        while True:
+            _line = response.readline()
+            if _line == "\r\n": break
+            header, value = _line.split(":",1)
+            _r["response_headers"][header.casefold()] = value.strip() # casefold => convert to lowercase
+
+        #couple of asserts to check for a few headers
+        assert "transfer-encoding" not in _r["response_headers"]
+        assert "content-encoding" not in _r["response_headers"]
+
+        # Body
+        # everything remaining is the body
+        _r["content"] = response.read()
+
+        return _r
+
+                                        
+
