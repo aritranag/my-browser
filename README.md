@@ -21,3 +21,7 @@ index.html :- path; what to get
 
 Create your own python server for testing using this command - python3 -m http.server 8000 -d /some/directory
 Then use the localhost URL to test your code
+
+1. Support for Http scheme - Initial
+2. Support for Https scheme - 18/09/2024
+3. Support for file scheme - 19/09/2024

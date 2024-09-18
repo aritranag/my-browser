@@ -2,6 +2,7 @@
 
 import socket
 import ssl
+import os
 
 class URL:
     """
@@ -15,13 +16,14 @@ class URL:
     """
     def __init__(self,url):
         """
-        @param: url - URL of the website we are trying to go to
+        @param: url - URL of the website we are trying to go to / file url
         parses the URL into scheme/protocol,port, host and path. stores them as object properties
+        For file url :- file:///path | file://localhost/path
         """
         self.scheme,url = url.split("://",1)
         
-        #checking the fact that our browser only supports http / https
-        assert self.scheme in ["http","https"]
+        #checking the fact that our browser only supports http / https / file
+        assert self.scheme in ["http","https","file"]
 
         # add the / if not in the url, path is empty
         if "/" not in url:
@@ -41,6 +43,9 @@ class URL:
             elif self.scheme == "https":
                 # 443 is the https default port
                 self.port = 443
+            elif self.scheme == "file":
+                # file url is of the format file:///path | file://hostname/path, file will have no port
+                self.port = None
     
         self.path = "/" + url
 
@@ -48,7 +53,21 @@ class URL:
     def request(self):
         """
         Download the web page defined by the host and path values in the class object
+        For the file protocol serve the directory or the file defined in path
+
+        Response:-
+        For http / https scheme - Dictionary object with the following keys
+            version : Version of the protocol being used
+            status : status code of the response
+            explanation : Explanation of the status code
+            response_headers : {dictionary with all the headers as key-value pairs}
+            content : body of the response
+        For file scheme - dict object
+            content : Content of the file / listing of the directory being requested
         """
+        if self.scheme == "file":
+            return self._requestFile()
+        
         # create a socket to connect to the host 
         # socket connection details = family=address family, defines location(where), type=stream/datagran(what), proto=(how)
         s = socket.socket(family=socket.AF_INET,type=socket.SOCK_STREAM,proto=socket.IPPROTO_TCP)
@@ -76,6 +95,28 @@ class URL:
 
         return responseObj
     
+
+    def _requestFile(self):
+        """
+        Serves up the file as defined by the path in the file url
+
+        Response:
+        The file object or the directory listing defined in path
+        """
+        _r = {}
+        #default path = /
+        if os.path.exists(self.path):
+            # since path exists determine whether it is a directory or a file and send response accordingly
+            if os.path.isfile(self.path):
+                # TODO : serve up the file in bytes and figure out how to show it in browser
+                _r["content"] = "this is a file"
+            elif os.path.isdir(self.path):
+                # serve up the contents of the directory as a list of strings
+                _r["content"] = "\n".join(os.listdir(self.path))
+            else:
+                _r["content"] = "Neither file nor path, error"
+
+        return _r
 
     def _createRequest(self):
         """
@@ -135,7 +176,10 @@ def load(url):
     """
     newUrl = URL(url)
     response = newUrl.request()
-    show(response["content"])
+    if newUrl.scheme == "file":
+        print(response["content"])
+    else:
+        show(response["content"])
 
 def show(body):
     """
