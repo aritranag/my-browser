@@ -11,6 +11,7 @@ class URL:
     Method List:
     constructor - parses the URL string into scheme, host and path
     request - Creates a socket object to connect to the server and make a request call based on scheme, port and path. Returns the response as an object
+    _requestFile - Utility function to support the file protocol, provides the directory listing for a path or the contents of the file
     _createRequest - Utility function to create the necessary request
     _parseResponse - Utility function to parse the response into an object format for later use
     """
@@ -98,7 +99,7 @@ class URL:
 
     def _requestFile(self):
         """
-        Serves up the file as defined by the path in the file url
+        Serves up the file as defined by the path in the file url, or the listing for a directory
 
         Response:
         The file object or the directory listing defined in path
@@ -172,7 +173,7 @@ class URL:
                                         
 def load(url):
     """
-    Requests the URL and then calls show to print the text returned
+    Requests the URL and then calls show to print the text returned, for file protocol simply prints the content
     """
     newUrl = URL(url)
     response = newUrl.request()
